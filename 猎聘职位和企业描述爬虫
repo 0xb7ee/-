@@ -1,0 +1,92 @@
+# coding:utf-8
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+sys.getdefaultencoding()
+
+import urllib
+from bs4 import BeautifulSoup
+import bs4
+import pandas as pd
+from selenium import webdriver
+import socket
+socket.setdefaulttimeout(20)
+import time
+sleep_download_time = 10
+time.sleep(sleep_download_time)
+import os
+import threading
+############################################################################
+joblist
+https://www.liepin.com/job/196440603.shtml,智能化设计师,55
+https://www.liepin.com/job/196335777.shtml,绩效经理,55
+https://www.liepin.com/job/196198087.shtml,Unity3d 客户端开发工程师,55
+https://www.liepin.com/job/196203770.shtml,高级ui设计师,55
+https://www.liepin.com/job/195271254.shtml,子公司总经理,55
+https://www.liepin.com/job/196118876.shtml,软件工程师,55
+#############################################################################
+def liepin(input,output):
+######得到网址标题和标签的映射####################
+    df = pd.read_csv(input,header=None,sep=',')
+    urls = df.iloc[:,0]
+    titles = df.iloc[:,1]
+    categories = df.iloc[:,2]
+    urls = map(str,urls)
+    titles = map(str,titles)
+    categories = map(str,categories)
+    url_to_tag = {}
+    get_title = {}
+    n = len(df)
+    for i in range(n):
+        url_to_tag[urls[i]] = categories[i]
+        get_title[urls[i]] = titles[i]
+#######利用PhantomJS获取网页，点击“展开”，获取展开后的网页源代码############
+    corpus_text = pd.DataFrame(columns=['tags', 'contents'])
+    def get_liepin_texts(liepin_url):
+        driver = webdriver.PhantomJS()
+        driver.get(liepin_url)
+        links = driver.find_elements_by_tag_name("a")
+        for link in links:
+            if "slider" == link.get_attribute("class") and "javascript:;" == link.get_attribute("href"):
+                link.click()
+        liepin_html = driver.page_source
+#######利用BS4解析网页得到包含职位描述、职位要求、企业简介的文字#############
+        liepin_soup = BeautifulSoup(sina_html, "lxml")
+        x = liepin_soup.find_all("div", {"class": "content content-word"})
+        content = ""
+        for contents in x:
+            content = content + contents.text.strip() + " "
+        return content
+##############i作为提示###################
+    i = 0
+    for url in urls:
+        try:
+            content = get_title[url]+" "+get_liepin_texts(url).encode('utf-8')
+            tag = url_to_tag[url]
+            corpus_text.loc[len(corpus_text) + 1] = [tag , content]
+            i = i+1
+            print i
+        except AttributeError:
+            print "AttributeError"
+        except UnboundLocalError:
+            print "UnboundLocalError"
+        except socket.timeout:
+            print "time out"
+        except IOError:
+            print "IOError"
+    corpus_text.to_csv(output, index=False, header=True,sep="\t")
+####################################创建多线程入口####################################################
+threads = []
+Directory = "Liepin_job"
+for rootnames,dirnames,filenames in os.walk(Directory):
+    for filename in filenames:
+        input = os.path.join(rootnames,filename)
+        output = filename[:-4]+".txt"
+        t = threading.Thread(target=handle, args=(input,output))
+        threads.append(t)
+####总程序入口####
+if __name__ == '__main__':
+    for i in threads:
+        i.setDaemon(True)
+        i.start()
+    t.join()
